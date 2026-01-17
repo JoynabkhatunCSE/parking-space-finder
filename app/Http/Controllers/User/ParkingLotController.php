@@ -14,13 +14,17 @@ class ParkingLotController extends Controller
         return view('user.parking-lots.index', compact('parkingLots'));
     }
 
-    public function show(ParkingLot $parkingLot)
+   public function show(ParkingLot $parkingLot)
 {
     $parkingLot->load([
-        'parkingSpaces.activeBooking'
+        'parkingSpaces' => function ($query) {
+            $query->with(['activeBooking']); // Load bookings too
+        }
     ]);
 
     return view('user.parking-lots.show', compact('parkingLot'));
 }
+
+
     
 }

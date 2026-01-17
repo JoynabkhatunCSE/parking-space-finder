@@ -7,7 +7,7 @@ use App\Http\Controllers\User\ParkingLotController as UserParkingLotController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\User\BookingController;
 use App\Http\Controllers\User\SSLCommerzController;
-
+use App\Http\Controllers\User\ParkingSpaceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,51 +48,41 @@ Route::middleware(['auth'])->group(function () {
         ->name('parking-lots.show');
 
     /*
-    | User : Book Parking Space
+    | User : Parking Spaces - NEW BOOKING FORM
     */
-    Route::post('/parking-spaces/{parkingSpace}/book',
-        [BookingController::class, 'store']
-    )->name('parking-spaces.book');
+    Route::get('/parking-spaces/{parkingSpace}/book', [ParkingSpaceController::class, 'book'])
+        ->name('parking-spaces.book-form');
+
+    /*
+    | User : Book Parking Space (POST)
+    */
+    Route::post('/parking-spaces/{parkingSpace}/book', [BookingController::class, 'store'])
+        ->name('parking-spaces.book');
 
     /*
     |--------------------------------------------------------------------------
-    | SSLCommerz Payment Routes (REAL / INDUSTRY STANDARD)
+    | SSLCommerz Payment Routes (KEEPING YOUR EXISTING + NEW)
     |--------------------------------------------------------------------------
     */
+    
+    // ✅ KEEP YOUR EXISTING ROUTE (for backward compatibility)
+    Route::get('/payment/sslcommerz/{booking}', [SSLCommerzController::class, 'pay'])
+        ->name('payment.sslcommerz');
 
-    // Redirect user to SSLCommerz hosted payment page
-    Route::get('/payment/sslcommerz/{booking}',
-        [SSLCommerzController::class, 'pay']
-    )->name('payment.sslcommerz');
-
-
-    // SSLCommerz callbacks
-    Route::get('payment/sslcommerz/{booking}', [SSLCommerzController::class, 'pay'])
-    ->name('payment.sslcommerz');
-
-Route::post('payment/sslcommerz/success', [SSLCommerzController::class, 'success'])
-    ->name('sslcommerz.success');
-
-Route::post('payment/sslcommerz/fail', [SSLCommerzController::class, 'fail'])
-    ->name('sslcommerz.fail');
-
-Route::post('payment/sslcommerz/cancel', [SSLCommerzController::class, 'cancel'])
-    ->name('sslcommerz.cancel');
-
-});
-Route::middleware('auth')->group(function () {
+    // ✅ NEW SSLCommerz routes (standard structure)
     Route::prefix('sslcommerz')->name('sslcommerz.')->group(function () {
-        Route::any('/pay/{booking}', [App\Http\Controllers\User\SSLCommerzController::class, 'pay'])->name('pay');
-        Route::any('/success', [App\Http\Controllers\User\SSLCommerzController::class, 'success'])->name('success');
-        Route::any('/fail', [App\Http\Controllers\User\SSLCommerzController::class, 'fail'])->name('fail');
-        Route::any('/cancel', [App\Http\Controllers\User\SSLCommerzController::class, 'cancel'])->name('cancel');
-        Route::post('/ipn', [App\Http\Controllers\User\SSLCommerzController::class, 'ipn'])->name('ipn');  // Add IPN
+        Route::get('pay/{booking}', [SSLCommerzController::class, 'pay'])->name('pay');
+        Route::any('success', [SSLCommerzController::class, 'success'])->name('success');
+        Route::any('fail', [SSLCommerzController::class, 'fail'])->name('fail');
+        Route::any('cancel', [SSLCommerzController::class, 'cancel'])->name('cancel');
+        Route::post('ipn', [SSLCommerzController::class, 'ipn'])->name('ipn');
     });
+
+    // ✅ SSLCommerz callbacks (KEEPING YOUR EXISTING)
+    Route::post('payment/sslcommerz/success', [SSLCommerzController::class, 'success'])->name('payment.sslcommerz.success');
+    Route::post('payment/sslcommerz/fail', [SSLCommerzController::class, 'fail'])->name('payment.sslcommerz.fail');
+    Route::post('payment/sslcommerz/cancel', [SSLCommerzController::class, 'cancel'])->name('payment.sslcommerz.cancel');
 });
-
-
-
-
 
 /*
 |--------------------------------------------------------------------------
