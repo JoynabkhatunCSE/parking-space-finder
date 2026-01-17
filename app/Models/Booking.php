@@ -13,6 +13,7 @@ class Booking extends Model
         'end_time',
         'total_cost',
         'status',
+        'transaction_id',
     ];
 
     public const STATUS_PENDING   = 'pending';
@@ -33,6 +34,11 @@ class Booking extends Model
 {
     return $this->hasOne(\App\Models\Payment::class);
 }
+public function scopePending($query)
+{
+    return $query->where('status', 'pending');
+}
+
 
 }
 

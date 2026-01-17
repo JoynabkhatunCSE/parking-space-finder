@@ -7,9 +7,10 @@ use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+// Remove or comment out if not using package fully: use Karim007\SslcommerzLaravel\SslCommerz;
 
 class SSLCommerzController extends Controller
-{
+{ 
     public function pay(Booking $booking)
     {
         abort_if($booking->user_id !== Auth::id(), 403);
@@ -27,8 +28,8 @@ class SSLCommerzController extends Controller
             'transaction_id' => $tranId
         ]);
 
-        // 🔥 SSLCommerz INIT API call (SANDBOX FIX)
-        $response = Http::withoutVerifying() // ✅ IMPORTANT FIX
+        // SSLCommerz INIT API call (SANDBOX FIX)
+        $response = Http::withoutVerifying() // IMPORTANT for sandbox
             ->asForm()
             ->post(
                 config('services.sslcommerz.init_url'),
@@ -59,19 +60,40 @@ class SSLCommerzController extends Controller
 
         $data = $response->json();
 
-        // ❌ SSLCommerz rejected request
+        // SSLCommerz rejected request
         if (!isset($data['GatewayPageURL']) || empty($data['GatewayPageURL'])) {
-            return back()->withErrors('SSLCommerz gateway error.');
+            return back()->withErrors('SSLCommerz gateway error: ' . ($data['failedreason'] ?? 'Unknown'));
         }
 
-        // ✅ REAL REDIRECT TO SSLCommerz
+        // REAL REDIRECT TO SSLCommerz
         return redirect()->away($data['GatewayPageURL']);
     }
 
     public function success(Request $request)
     {
-        $booking = Booking::where('id', $request->value_a)->firstOrFail();
+        $bookingId = $request->value_a;
+        $booking = Booking::where('id', $bookingId)->firstOrFail();
 
+        // CRITICAL: VALIDATE payment with SSLCommerz
+        $validationResponse = Http::asForm()->post('https://sandbox.sslcommerz.com/verify/' . $request->val_id, [
+            'store_id' => config('services.sslcommerz.store_id'),
+            'store_passwd' => config('services.sslcommerz.store_password'),
+            'val_id' => $request->val_id,
+            'tran_id' => $request->tran_id,
+        ]);
+
+        $validationData = $validationResponse->json();
+
+        if ($validationData['status'] !== 'VALID' || 
+            (float)$validationData['amount'] != $booking->total_cost ||
+            $validationData['tran_id'] !== $booking->transaction_id) {
+            // Log error, update booking to failed
+            $booking->update(['status' => 'failed']);
+            return redirect()->route('dashboard')
+                ->withErrors('Payment validation failed.');
+        }
+
+        // SUCCESS: Update booking and space
         $booking->update(['status' => 'paid']);
         $booking->parkingSpace->update(['status' => 'booked']);
 
@@ -81,13 +103,45 @@ class SSLCommerzController extends Controller
 
     public function fail()
     {
+        // Optional: Find booking by tran_id=value_a and set to failed
         return redirect()->route('dashboard')
             ->withErrors('Payment failed. Please try again.');
     }
 
     public function cancel()
     {
+        // Optional: Find booking by tran_id=value_a and set back to pending/available
         return redirect()->route('dashboard')
             ->withErrors('Payment cancelled.');
+    }
+
+    public function ipn(Request $request) // Server-to-server, POST only
+    {
+        $bookingId = $request->value_a ?? null;
+        if (!$bookingId) return response('OK', 200);
+
+        $booking = Booking::find($bookingId);
+        if (!$booking) return response('OK', 200);
+
+        // SAME VALIDATION as success (use val_id from request)
+        $validationResponse = Http::asForm()->post('https://sandbox.sslcommerz.com/verify/' . $request->val_id, [
+            'store_id' => config('services.sslcommerz.store_id'),
+            'store_passwd' => config('services.sslcommerz.store_password'),
+            'val_id' => $request->val_id,
+            'tran_id' => $request->tran_id,
+        ]);
+
+        $validationData = $validationResponse->json();
+
+        if ($validationData['status'] === 'VALID' && 
+            (float)$validationData['amount'] == $booking->total_cost &&
+            $validationData['tran_id'] === $booking->transaction_id &&
+            $booking->status === 'pending') {
+            
+            $booking->update(['status' => 'paid']);
+            $booking->parkingSpace->update(['status' => 'booked']);
+        }
+
+        return response('OK', 200); // Always respond OK to IPN
     }
 }

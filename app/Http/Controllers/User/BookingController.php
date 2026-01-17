@@ -58,6 +58,6 @@ class BookingController extends Controller
     ]);
 
     // 🔥 THIS MUST EXECUTE
-    return redirect()->route('payment.sslcommerz', $booking->id);
+    return redirect()->route('sslcommerz.pay', $booking->id);
 }
 }

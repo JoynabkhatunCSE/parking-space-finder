@@ -1,4 +1,4 @@
-@extends('layouts.app')
+<!-- @extends('layouts.app')
 
 @section('content')
 <div class="max-w-lg mx-auto mt-10 bg-white shadow rounded p-6">
@@ -21,4 +21,4 @@
         </button>
     </form>
 </div>
-@endsection
+@endsection -->

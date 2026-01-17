@@ -80,6 +80,16 @@ Route::post('payment/sslcommerz/cancel', [SSLCommerzController::class, 'cancel']
     ->name('sslcommerz.cancel');
 
 });
+Route::middleware('auth')->group(function () {
+    Route::prefix('sslcommerz')->name('sslcommerz.')->group(function () {
+        Route::any('/pay/{booking}', [App\Http\Controllers\User\SSLCommerzController::class, 'pay'])->name('pay');
+        Route::any('/success', [App\Http\Controllers\User\SSLCommerzController::class, 'success'])->name('success');
+        Route::any('/fail', [App\Http\Controllers\User\SSLCommerzController::class, 'fail'])->name('fail');
+        Route::any('/cancel', [App\Http\Controllers\User\SSLCommerzController::class, 'cancel'])->name('cancel');
+        Route::post('/ipn', [App\Http\Controllers\User\SSLCommerzController::class, 'ipn'])->name('ipn');  // Add IPN
+    });
+});
+
 
 
 
